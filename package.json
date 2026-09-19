@@ -1,0 +1,12 @@
+{
+  "name": "radio-id",
+  "version": "10.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "description": "Radio ID mobile-ready PWA with server-side radio stream proxy"
+}
