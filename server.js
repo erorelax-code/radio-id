@@ -1,30 +1,11 @@
-const http=require('http'),https=require('https'),fs=require('fs'),path=require('path');
-const root=__dirname, port=process.env.PORT||8080;
+const http=require('http'),https=require('https'),fs=require('fs'),path=require('path'),dns=require('dns').promises,net=require('net');
+const root=__dirname,port=process.env.PORT||8080;
 const types={'.html':'text/html; charset=utf-8','.js':'application/javascript','.json':'application/json','.css':'text/css','.png':'image/png','.jpg':'image/jpeg','.svg':'image/svg+xml'};
-const STREAMS={
-  sami:'https://s2.radio.co/s0dc6b5c9b/listen',
-  fix:'https://edge-audio-03-gos2.sharp-stream.com/fixradio.mp3',
-  prl:'https://stream.rcs.revma.com/prfmwmwy768uv'
-};
-function json(res,code,obj){res.writeHead(code,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});res.end(JSON.stringify(obj))}
-function proxyStream(req,res,url,depth=0){
-  if(depth>4)return json(res,502,{error:'too_many_redirects'});
-  const lib=url.startsWith('https:')?https:http;
-  const up=lib.get(url,{headers:{'User-Agent':'Mozilla/5.0 RadioID/11.0','Icy-MetaData':'0','Accept':'audio/aac,audio/mpeg,audio/*;q=0.9,*/*;q=0.1'}},r=>{
-    if(r.statusCode>=300&&r.statusCode<400&&r.headers.location){r.resume();return proxyStream(req,res,new URL(r.headers.location,url).toString(),depth+1)}
-    if(r.statusCode<200||r.statusCode>=300){r.resume();return json(res,502,{error:'upstream_'+r.statusCode})}
-    const h={'content-type':r.headers['content-type']||'audio/mpeg','cache-control':'no-store, no-cache, must-revalidate','access-control-allow-origin':'*','accept-ranges':'none','connection':'keep-alive'};
-    for(const k of ['icy-br','icy-genre','icy-name','icy-url','icy-metaint']) if(r.headers[k])h[k]=r.headers[k];
-    res.writeHead(200,h); r.pipe(res); req.on('close',()=>r.destroy());
-  });
-  up.setTimeout(0);
-  up.on('error',()=>{if(!res.headersSent)json(res,502,{error:'stream_unavailable'});else res.destroy()});
-}
-function serve(req,res,p){let f=path.join(root,p==='/'?'index.html':p);if(!f.startsWith(root))return res.writeHead(403).end();fs.stat(f,(e,st)=>{if(e||!st.isFile()){res.writeHead(404);return res.end('Not found')}res.writeHead(200,{'content-type':types[path.extname(f)]||'application/octet-stream','cache-control':'no-cache'});fs.createReadStream(f).pipe(res)});}
-http.createServer((req,res)=>{
-  const u=new URL(req.url,'http://localhost');
-  if(u.pathname==='/health')return json(res,200,{ok:true,app:'Radio ID v11'});
-  const m=u.pathname.match(/^\/api\/stream\/(sami|fix|prl)$/); if(m)return proxyStream(req,res,STREAMS[m[1]]);
-  if(u.pathname==='/api/recognize'&&req.method==='POST')return json(res,501,{error:'recognition_provider_not_configured',message:'Skonfiguruj dostawcę rozpoznawania po stronie serwera.'});
-  serve(req,res,u.pathname);
-}).listen(port,'0.0.0.0',()=>console.log(`Radio ID v11: http://0.0.0.0:${port}`));
+const STREAMS={sami:'https://s2.radio.co/s0dc6b5c9b/listen',fix:'https://listen-fixradio.sharp-stream.com/fixradio.mp3',prl:'https://stream.rcs.revma.com/prfmwmwy768uv'};
+const agents={http:new http.Agent({keepAlive:true,maxSockets:100}),https:new https.Agent({keepAlive:true,maxSockets:100})};
+function json(res,code,obj){if(res.headersSent)return res.destroy();res.writeHead(code,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});res.end(JSON.stringify(obj))}
+function privateIP(ip){if(net.isIP(ip)===4){const a=ip.split('.').map(Number);return a[0]===10||a[0]===127||a[0]===0||a[0]===169&&a[1]===254||a[0]===172&&a[1]>=16&&a[1]<=31||a[0]===192&&a[1]===168}return ip==='::1'||ip.startsWith('fc')||ip.startsWith('fd')||ip.startsWith('fe80:')}
+async function safeUrl(raw){let u;try{u=new URL(raw)}catch{return null}if(!['http:','https:'].includes(u.protocol)||u.username||u.password)return null;if(u.port&&!['80','443'].includes(u.port))return null;try{const addrs=await dns.lookup(u.hostname,{all:true});if(!addrs.length||addrs.some(a=>privateIP(a.address)))return null}catch{return null}return u}
+async function proxyStream(req,res,raw,depth=0){if(depth>6)return json(res,502,{error:'too_many_redirects'});const u=await safeUrl(raw);if(!u)return json(res,400,{error:'invalid_stream_url'});const lib=u.protocol==='https:'?https:http;const headers={'User-Agent':'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/140 Safari/537.36 RadioID/12','Icy-MetaData':'0','Accept':'audio/aac,audio/mpeg,audio/ogg,audio/*;q=0.9,*/*;q=0.5','Accept-Encoding':'identity','Connection':'keep-alive'};if(req.headers.range)headers.Range=req.headers.range;const up=lib.get(u,{headers,agent:u.protocol==='https:'?agents.https:agents.http},r=>{if(r.statusCode>=300&&r.statusCode<400&&r.headers.location){r.resume();return proxyStream(req,res,new URL(r.headers.location,u).toString(),depth+1)}if(r.statusCode<200||r.statusCode>=300){r.resume();return json(res,502,{error:'upstream_'+r.statusCode})}const h={'content-type':r.headers['content-type']||'audio/mpeg','cache-control':'no-store, no-cache, must-revalidate','access-control-allow-origin':'*','x-content-type-options':'nosniff'};for(const k of ['content-length','content-range','accept-ranges','icy-br','icy-genre','icy-name','icy-url','icy-metaint'])if(r.headers[k])h[k]=r.headers[k];res.writeHead(r.statusCode,h);res.flushHeaders?.();r.pipe(res);const close=()=>r.destroy();req.once('aborted',close);res.once('close',close)});up.setTimeout(20000,()=>up.destroy(new Error('upstream_timeout_before_data')));up.once('response',()=>up.setTimeout(0));up.on('error',()=>{if(!res.headersSent)json(res,502,{error:'stream_unavailable'});else res.destroy()})}
+function serve(req,res,p){let f=path.join(root,p==='/'?'index.html':p);if(!f.startsWith(root))return res.writeHead(403).end();fs.stat(f,(e,st)=>{if(e||!st.isFile()){res.writeHead(404);return res.end('Not found')}res.writeHead(200,{'content-type':types[path.extname(f)]||'application/octet-stream','cache-control':'no-cache, no-store, must-revalidate'});fs.createReadStream(f).pipe(res)})}
+http.createServer((req,res)=>{const u=new URL(req.url,'http://localhost');if(u.pathname==='/health')return json(res,200,{ok:true,app:'Radio ID v12'});const m=u.pathname.match(/^\/api\/stream\/(sami|fix|prl)$/);if(m)return proxyStream(req,res,STREAMS[m[1]]);if(u.pathname==='/api/stream'){const raw=u.searchParams.get('url');if(!raw)return json(res,400,{error:'missing_url'});return proxyStream(req,res,raw)}if(u.pathname==='/api/recognize'&&req.method==='POST')return json(res,501,{error:'recognition_provider_not_configured',message:'Skonfiguruj dostawcę rozpoznawania po stronie serwera.'});serve(req,res,u.pathname)}).listen(port,'0.0.0.0',()=>console.log(`Radio ID v12: http://0.0.0.0:${port}`));
