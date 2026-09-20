@@ -91,6 +91,6 @@ test('allows API requests from the bundled Capacitor app', async t => {
     headers: { origin: 'https://localhost' }
   });
   assert.equal(response.status, 204);
-  assert.equal(response.headers['access-control-allow-origin'], 'https://localhost');
+  assert.equal(response.headers['access-control-allow-origin'], '*');
   assert.match(response.headers['access-control-allow-methods'], /POST/);
 });

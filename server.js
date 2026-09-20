@@ -223,13 +223,11 @@ function serve(req, res, pathname) {
 
 function createServer() {
   return http.createServer((req, res) => {
-    const origin = req.headers.origin;
-    if (origin === 'https://localhost' || origin === 'capacitor://localhost') {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Vary', 'Origin');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    }
+    // Public radio endpoints do not use cookies or private user data. A wildcard
+    // lets the bundled Capacitor WebView call them regardless of its local scheme.
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
       return res.end();
