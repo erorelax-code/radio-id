@@ -1,0 +1,12 @@
+{
+  "appId": "com.radioid.app",
+  "appName": "Radio ID",
+  "webDir": "www",
+  "server": {
+    "url": "https://iaq.onrender.com",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

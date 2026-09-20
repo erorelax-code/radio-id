@@ -39,3 +39,32 @@ npm test
 - `POST /api/recognize` — rozpoznawanie utworu,
 - `GET /api/stream/:station` — proxy dla wbudowanych stacji,
 - `GET /api/stream?url=...` — proxy publicznego streamu.
+
+## Android i Android Auto
+
+Repozytorium zawiera natywny projekt Android w katalogu `android/` oraz
+konfigurację Capacitor. Identyfikator aplikacji to `com.radioid.app`, a projekt
+celuje w Android API 36.
+
+Warstwa natywna używa Media3/ExoPlayer i udostępnia `MediaLibraryService` dla:
+
+- odtwarzania radia w tle,
+- systemowych kontrolek multimedialnych,
+- Android Auto i sterowania z kierownicy,
+- katalogu stacji widocznego na ekranie samochodu.
+
+Widok telefonu otwiera produkcyjną stronę `https://iaq.onrender.com`. Android
+Auto korzysta z natywnej usługi, a nie z interfejsu WebView.
+
+### Budowanie
+
+Otwórz katalog `android/` w Android Studio albo uruchom:
+
+```bash
+npm install
+npm run android:build
+```
+
+Workflow `.github/workflows/android.yml` buduje testowy APK przy każdym pushu
+do `main`. Podpisany pakiet AAB do Google Play wymaga osobnego klucza wydania,
+którego nie należy zapisywać w repozytorium.
