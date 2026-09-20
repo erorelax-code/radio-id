@@ -11,7 +11,9 @@ const status=document.querySelector('#status');
 const NATIVE_BACKEND=location.hostname==='localhost'?'https://iaq.onrender.com':'';
 if(NATIVE_BACKEND)document.documentElement.classList.add('native-app');
 const browserFetch=window.fetch.bind(window);
-window.fetch=(input,options)=>browserFetch(NATIVE_BACKEND&&typeof input==='string'&&input.startsWith('/api/')?NATIVE_BACKEND+input:input,options);
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function wakeNativeBackend(){for(let attempt=0;attempt<6;attempt++){try{const response=await browserFetch(NATIVE_BACKEND+'/health',{cache:'no-store',signal:AbortSignal.timeout(12000)});const data=await response.json();if(response.ok&&data.ok)return}catch(error){}await delay(4000)}throw new Error('Serwer radia nie uruchomił się na czas. Spróbuj ponownie.')}
+window.fetch=async(input,options)=>{const isApi=NATIVE_BACKEND&&typeof input==='string'&&input.startsWith('/api/');if(isApi&&input==='/api/recognize')await wakeNativeBackend();const target=isApi?NATIVE_BACKEND+input:input;const requestOptions=isApi&&input==='/api/recognize'?{...options,signal:AbortSignal.timeout(70000)}:options;return browserFetch(target,requestOptions)};
 if(NATIVE_BACKEND)setTimeout(()=>{const station=fixed.find(item=>item.id==='fix');if(station)station.url=NATIVE_BACKEND+'/api/stream/fix'},0);
 document.querySelector('.logo').innerHTML='<svg viewBox="0 0 64 64" role="img" aria-label="Radio ID"><g fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"><path d="M16 13C5 24 5 44 16 55M48 13c11 11 11 31 0 42M23 20c-7 7-7 21 0 28M41 20c7 7 7 21 0 28M28 27c-4 4-4 10 0 14M36 27c4 4 4 10 0 14"/><circle cx="32" cy="34" r="5"/><path d="M32 39v15"/></g></svg>';
 const API='https://de1.api.radio-browser.info/json', player=document.querySelector('#player');let stations=[],view='all',current=null,retryCount=0,retryTimer=null,manualStop=false,recent=JSON.parse(localStorage.getItem('radioIdRecent')||'[]');let favorites=new Set(JSON.parse(localStorage.getItem('radioIdFavorites')||'[]'));const hist=JSON.parse(localStorage.getItem('radioIdHistory')||'[]');
