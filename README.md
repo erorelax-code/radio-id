@@ -1,23 +1,41 @@
-# Radio ID v9 Online
+# Radio ID v18
 
-Ta wersja dodaje backendowy proxy streamów dla PRL, Sami Swoi Radio i Fix Radio. Dzięki temu problematyczne stacje nie muszą być odtwarzane bezpośrednio z `content://`.
+Mobilna aplikacja PWA do słuchania radia internetowego z backendowym proxy streamów i rozpoznawaniem utworów przez AudD.
 
 ## Uruchomienie lokalne
-Wymagany Node.js 18+.
+
+Wymagany jest Node.js 18+ oraz token z panelu AudD.
 
 ```bash
-npm start
+AUDD_API_TOKEN=twoj_token npm start
 ```
 
-Następnie otwórz `http://localhost:8080`. Na telefonie aplikacja powinna być wdrożona na hostingu HTTPS (np. serwer Node obsługujący ten folder). Samo otwarcie `index.html` jako `content://` nie uruchomi endpointów `/api/stream/...`.
+Następnie otwórz `http://localhost:8080`. Stan konfiguracji można sprawdzić pod `http://localhost:8080/health` — pole `auddConfigured` powinno mieć wartość `true`.
 
-## Co działa w v9
-- nowoczesny interfejs v8,
-- logo/miniatury stacji i fallback,
-- ulubione i ostatnio słuchane,
-- backendowy proxy dla PRL, Sami Swoi i Fix Radio,
-- endpoint `/health`,
-- przygotowany endpoint `/api/recognize`.
+## Konfiguracja na Render
 
-## Rozpoznawanie utworów
-`/api/recognize` celowo nie zawiera klucza API w kodzie klienta. Aby uruchomić prawdziwe rozpoznawanie, trzeba podłączyć wybranego dostawcę po stronie serwera i przechowywać klucz jako sekret/zmienną środowiskową.
+Blueprint w `render.yaml` deklaruje sekret `AUDD_API_TOKEN`. Przy pierwszym wdrożeniu lub w ustawieniach istniejącej usługi dodaj token w sekcji **Environment**. Nie zapisuj tokenu w repozytorium ani w kodzie klienta.
+
+Po ustawieniu sekretu Render automatycznie wdroży aplikację. Rozpoznawanie działa dla wbudowanych stacji oraz dla publicznych adresów HTTPS/HTTP zwracanych przez Radio Browser.
+
+## Jak działa rozpoznawanie
+
+1. Klient wysyła identyfikator stacji i jej publiczny adres do `POST /api/recognize`.
+2. Serwer pobiera około 12 sekund transmisji.
+3. Fragment audio jest przesyłany do AudD jako plik `multipart/form-data`.
+4. Klient wyświetla wykonawcę, tytuł, album i dostępne linki do serwisów muzycznych.
+
+Token AudD jest używany wyłącznie po stronie serwera. Endpoint odrzuca lokalne i prywatne adresy sieciowe.
+
+## Testy
+
+```bash
+npm test
+```
+
+## Endpointy
+
+- `GET /health` — status aplikacji i konfiguracji AudD,
+- `POST /api/recognize` — rozpoznawanie utworu,
+- `GET /api/stream/:station` — proxy dla wbudowanych stacji,
+- `GET /api/stream?url=...` — proxy publicznego streamu.

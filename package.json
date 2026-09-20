@@ -1,12 +1,13 @@
 {
   "name": "radio-id",
-  "version": "10.0.0",
+  "version": "18.0.0",
   "private": true,
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18"
   },
-  "description": "Radio ID mobile-ready PWA with server-side radio stream proxy"
+  "description": "Radio ID PWA with server-side radio proxy and AudD music recognition"
 }
