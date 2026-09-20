@@ -10,7 +10,7 @@ function request(server, options = {}) {
       let body = '';
       res.setEncoding('utf8');
       res.on('data', chunk => { body += chunk; });
-      res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(body) }));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: body ? JSON.parse(body) : null }));
     });
     req.on('error', reject);
     if (options.body) req.write(options.body);
@@ -79,4 +79,18 @@ test('recognition returns a clear configuration error before fetching audio', as
   });
   assert.equal(response.status, 503);
   assert.deepEqual(response.body, { ok: false, error: 'audd_not_configured' });
+});
+
+test('allows API requests from the bundled Capacitor app', async t => {
+  const server = require('./server').createServer().listen(0, '127.0.0.1');
+  t.after(() => server.close());
+  await new Promise(resolve => server.once('listening', resolve));
+  const response = await request(server, {
+    path: '/api/recognize',
+    method: 'OPTIONS',
+    headers: { origin: 'https://localhost' }
+  });
+  assert.equal(response.status, 204);
+  assert.equal(response.headers['access-control-allow-origin'], 'https://localhost');
+  assert.match(response.headers['access-control-allow-methods'], /POST/);
 });

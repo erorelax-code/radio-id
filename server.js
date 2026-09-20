@@ -223,6 +223,17 @@ function serve(req, res, pathname) {
 
 function createServer() {
   return http.createServer((req, res) => {
+    const origin = req.headers.origin;
+    if (origin === 'https://localhost' || origin === 'capacitor://localhost') {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    }
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      return res.end();
+    }
     const u = new URL(req.url, 'http://localhost');
     if (u.pathname === '/health') return json(res, 200, { ok: true, app: 'Radio ID v18', auddConfigured: !!process.env.AUDD_API_TOKEN });
     if (u.pathname === '/api/recognize') {
