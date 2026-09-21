@@ -13,18 +13,20 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends BridgeActivity {
     private final ExecutorService recognitionExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService startupExecutor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         bridge.getWebView().addJavascriptInterface(new RecognitionBridge(), "RadioIdNative");
-        recognitionExecutor.execute(this::warmBackendAndLoadApp);
+        startupExecutor.execute(this::warmBackendAndLoadApp);
     }
 
     private void warmBackendAndLoadApp() {
@@ -66,20 +68,15 @@ public class MainActivity extends BridgeActivity {
         int status = 0;
         String response;
         try {
-            connection = (HttpURLConnection) new URL("https://iaq.onrender.com/api/recognize").openConnection();
-            connection.setRequestMethod("POST");
+            String query = "station=" + URLEncoder.encode(station, "UTF-8")
+                + "&url=" + URLEncoder.encode(streamUrl, "UTF-8")
+                + "&_=" + System.currentTimeMillis();
+            connection = (HttpURLConnection) new URL("https://iaq.onrender.com/api/recognize?" + query).openConnection();
+            connection.setRequestMethod("GET");
             connection.setConnectTimeout(30000);
-            connection.setReadTimeout(90000);
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-            JSONObject payload = new JSONObject();
-            payload.put("station", station);
-            payload.put("url", streamUrl);
-            byte[] bytes = payload.toString().getBytes(StandardCharsets.UTF_8);
-            connection.setFixedLengthStreamingMode(bytes.length);
-            try (OutputStream output = connection.getOutputStream()) {
-                output.write(bytes);
-            }
+            connection.setReadTimeout(60000);
+            connection.setUseCaches(false);
+            connection.setRequestProperty("Accept", "application/json");
             status = connection.getResponseCode();
             InputStream input = status >= 200 && status < 400 ? connection.getInputStream() : connection.getErrorStream();
             response = readAll(input);
@@ -109,6 +106,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onDestroy() {
+        startupExecutor.shutdownNow();
         recognitionExecutor.shutdownNow();
         super.onDestroy();
     }
