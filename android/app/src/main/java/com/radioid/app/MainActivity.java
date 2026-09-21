@@ -80,7 +80,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         recognitionExecutor.shutdownNow();
         super.onDestroy();
     }
