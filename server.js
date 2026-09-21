@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const dns = require('dns').promises;
 const net = require('net');
+const crypto = require('crypto');
 
 const root = __dirname;
 const port = process.env.PORT || 8080;
@@ -20,6 +21,7 @@ const agents = {
   http: new http.Agent({ keepAlive: true, maxSockets: 100 }),
   https: new https.Agent({ keepAlive: true, maxSockets: 100 })
 };
+const recognitionJobs = new Map();
 
 function json(res, code, obj) {
   if (res.headersSent) return res.destroy();
@@ -189,25 +191,43 @@ function normalizeAuddResult(auddResponse) {
   };
 }
 
-async function recognize(req, res, suppliedPayload = null) {
-  if (!process.env.AUDD_API_TOKEN) return json(res, 503, { ok: false, error: 'audd_not_configured' });
+async function recognizePayload(payload) {
+  if (!process.env.AUDD_API_TOKEN) return { code: 503, body: { ok: false, error: 'audd_not_configured' } };
   try {
-    let payload = suppliedPayload;
-    if (!payload) {
-      const body = await readBody(req);
-      try { payload = body ? JSON.parse(body) : {}; } catch { return json(res, 400, { ok: false, error: 'invalid_json' }); }
-    }
     const raw = resolveStreamSource(payload);
-    if (!raw) return json(res, 400, { ok: false, error: 'missing_or_invalid_stream' });
+    if (!raw) return { code: 400, body: { ok: false, error: 'missing_or_invalid_stream' } };
     const clip = await capture(raw, 12);
-    if (clip.length < 4096) return json(res, 502, { ok: false, error: 'audio_clip_too_small' });
+    if (clip.length < 4096) return { code: 502, body: { ok: false, error: 'audio_clip_too_small' } };
     const result = await auddRecognize(clip);
-    if (result.status !== 'success') return json(res, 502, { ok: false, error: 'audd_error', details: result.error || null });
-    return json(res, 200, normalizeAuddResult(result));
+    if (result.status !== 'success') return { code: 502, body: { ok: false, error: 'audd_error', details: result.error || null } };
+    return { code: 200, body: normalizeAuddResult(result) };
   } catch (error) {
-    const code = error.message === 'body_too_large' ? 413 : 502;
-    return json(res, code, { ok: false, error: error.message || 'recognition_failed' });
+    return { code: 502, body: { ok: false, error: error.message || 'recognition_failed' } };
   }
+}
+
+async function recognize(req, res, suppliedPayload = null) {
+  let payload = suppliedPayload;
+  if (!payload) {
+    try { const body = await readBody(req); payload = body ? JSON.parse(body) : {}; }
+    catch { return json(res, 400, { ok: false, error: 'invalid_json' }); }
+  }
+  const result = await recognizePayload(payload);
+  return json(res, result.code, result.body);
+}
+
+async function startRecognitionJob(req, res) {
+  let payload;
+  try { const body = await readBody(req); payload = body ? JSON.parse(body) : {}; }
+  catch { return json(res, 400, { ok: false, error: 'invalid_json' }); }
+  if (!resolveStreamSource(payload)) return json(res, 400, { ok: false, error: 'missing_or_invalid_stream' });
+  const id = crypto.randomUUID();
+  recognitionJobs.set(id, { state: 'pending', created: Date.now() });
+  recognizePayload(payload).then(result => {
+    recognitionJobs.set(id, { state: 'done', created: Date.now(), ...result });
+    setTimeout(() => recognitionJobs.delete(id), 5 * 60 * 1000).unref?.();
+  });
+  return json(res, 202, { ok: true, job: id });
 }
 
 function serve(req, res, pathname) {
@@ -240,6 +260,13 @@ function createServer() {
       if (req.method === 'GET') return recognize(req, res, { station: u.searchParams.get('station'), url: u.searchParams.get('url') });
       if (req.method === 'POST') return recognize(req, res);
       return json(res, 405, { ok: false, error: 'method_not_allowed' });
+    }
+    if (u.pathname === '/api/recognize/start' && req.method === 'POST') return startRecognitionJob(req, res);
+    if (u.pathname === '/api/recognize/status' && req.method === 'GET') {
+      const job = recognitionJobs.get(u.searchParams.get('id'));
+      if (!job) return json(res, 404, { ok: false, error: 'job_not_found' });
+      if (job.state === 'pending') return json(res, 200, { ok: true, pending: true });
+      return json(res, job.code, job.body);
     }
     const match = u.pathname.match(/^\/api\/stream\/(sami|fix|prl)$/);
     if (match) return proxyStream(req, res, STREAMS[match[1]]);

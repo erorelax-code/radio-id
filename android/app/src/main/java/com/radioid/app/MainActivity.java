@@ -20,6 +20,8 @@ import java.util.concurrent.Executors;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.MediaType;
 import okhttp3.Response;
 
 public class MainActivity extends BridgeActivity {
@@ -78,24 +80,39 @@ public class MainActivity extends BridgeActivity {
         int status = 0;
         String response;
         try {
-            HttpUrl url = new HttpUrl.Builder()
-                .scheme("https")
-                .host("iaq.onrender.com")
-                .addPathSegments("api/recognize")
-                .addQueryParameter("station", station)
-                .addQueryParameter("url", streamUrl)
-                .addQueryParameter("_", Long.toString(System.currentTimeMillis()))
-                .build();
-            Request request = new Request.Builder()
-                .url(url)
+            JSONObject payload = new JSONObject();
+            payload.put("station", station);
+            payload.put("url", streamUrl);
+            Request startRequest = new Request.Builder()
+                .url("https://iaq.onrender.com/api/recognize/start")
                 .header("Accept", "application/json")
-                .header("User-Agent", "RadioID-Android/2.1")
+                .header("User-Agent", "RadioID-Android/2.3")
                 .header("Cache-Control", "no-cache")
-                .get()
+                .post(RequestBody.create(payload.toString(), MediaType.get("application/json; charset=utf-8")))
                 .build();
-            try (Response networkResponse = recognitionClient.newCall(request).execute()) {
-                status = networkResponse.code();
-                response = networkResponse.body() == null ? "{}" : networkResponse.body().string();
+            String jobId;
+            try (Response startResponse = recognitionClient.newCall(startRequest).execute()) {
+                String startBody = startResponse.body() == null ? "{}" : startResponse.body().string();
+                if (!startResponse.isSuccessful()) throw new Exception("start_http_" + startResponse.code() + ": " + startBody);
+                jobId = new JSONObject(startBody).getString("job");
+            }
+            response = "{}";
+            for (int attempt = 0; attempt < 45; attempt++) {
+                Thread.sleep(2000);
+                HttpUrl statusUrl = HttpUrl.get("https://iaq.onrender.com/api/recognize/status").newBuilder()
+                    .addQueryParameter("id", jobId)
+                    .addQueryParameter("_", Long.toString(System.currentTimeMillis()))
+                    .build();
+                Request statusRequest = new Request.Builder().url(statusUrl)
+                    .header("Accept", "application/json")
+                    .header("Cache-Control", "no-cache")
+                    .build();
+                try (Response statusResponse = recognitionClient.newCall(statusRequest).execute()) {
+                    status = statusResponse.code();
+                    response = statusResponse.body() == null ? "{}" : statusResponse.body().string();
+                }
+                JSONObject statusJson = new JSONObject(response);
+                if (!statusJson.optBoolean("pending", false)) break;
             }
         } catch (Exception error) {
             response = "{\"ok\":false,\"error\":\"android_connection_detail\",\"message\":"

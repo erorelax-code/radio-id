@@ -81,6 +81,25 @@ test('recognition returns a clear configuration error before fetching audio', as
   assert.deepEqual(response.body, { ok: false, error: 'audd_not_configured' });
 });
 
+test('asynchronous recognition returns a short job response', async t => {
+  const previous = process.env.AUDD_API_TOKEN;
+  delete process.env.AUDD_API_TOKEN;
+  const server = require('./server').createServer().listen(0, '127.0.0.1');
+  t.after(() => { server.close(); if (previous) process.env.AUDD_API_TOKEN = previous; });
+  await new Promise(resolve => server.once('listening', resolve));
+  const body = JSON.stringify({ station: 'prl' });
+  const start = await request(server, {
+    path: '/api/recognize/start', method: 'POST', body,
+    headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) }
+  });
+  assert.equal(start.status, 202);
+  assert.equal(typeof start.body.job, 'string');
+  await new Promise(resolve => setImmediate(resolve));
+  const result = await request(server, { path: '/api/recognize/status?id=' + encodeURIComponent(start.body.job) });
+  assert.equal(result.status, 503);
+  assert.equal(result.body.error, 'audd_not_configured');
+});
+
 test('allows API requests from the bundled Capacitor app', async t => {
   const server = require('./server').createServer().listen(0, '127.0.0.1');
   t.after(() => server.close());
