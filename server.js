@@ -189,12 +189,14 @@ function normalizeAuddResult(auddResponse) {
   };
 }
 
-async function recognize(req, res) {
+async function recognize(req, res, suppliedPayload = null) {
   if (!process.env.AUDD_API_TOKEN) return json(res, 503, { ok: false, error: 'audd_not_configured' });
   try {
-    const body = await readBody(req);
-    let payload;
-    try { payload = body ? JSON.parse(body) : {}; } catch { return json(res, 400, { ok: false, error: 'invalid_json' }); }
+    let payload = suppliedPayload;
+    if (!payload) {
+      const body = await readBody(req);
+      try { payload = body ? JSON.parse(body) : {}; } catch { return json(res, 400, { ok: false, error: 'invalid_json' }); }
+    }
     const raw = resolveStreamSource(payload);
     if (!raw) return json(res, 400, { ok: false, error: 'missing_or_invalid_stream' });
     const clip = await capture(raw, 12);
@@ -235,8 +237,9 @@ function createServer() {
     const u = new URL(req.url, 'http://localhost');
     if (u.pathname === '/health') return json(res, 200, { ok: true, app: 'Radio ID v18', auddConfigured: !!process.env.AUDD_API_TOKEN });
     if (u.pathname === '/api/recognize') {
-      if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method_not_allowed' });
-      return recognize(req, res);
+      if (req.method === 'GET') return recognize(req, res, { station: u.searchParams.get('station'), url: u.searchParams.get('url') });
+      if (req.method === 'POST') return recognize(req, res);
+      return json(res, 405, { ok: false, error: 'method_not_allowed' });
     }
     const match = u.pathname.match(/^\/api\/stream\/(sami|fix|prl)$/);
     if (match) return proxyStream(req, res, STREAMS[match[1]]);
