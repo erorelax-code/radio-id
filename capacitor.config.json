@@ -3,7 +3,6 @@
   "appName": "Radio ID",
   "webDir": "www",
   "server": {
-    "url": "https://iaq.onrender.com",
     "androidScheme": "https",
     "cleartext": false
   },

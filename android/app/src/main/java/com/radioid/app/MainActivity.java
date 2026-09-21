@@ -24,6 +24,34 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         bridge.getWebView().addJavascriptInterface(new RecognitionBridge(), "RadioIdNative");
+        recognitionExecutor.execute(this::warmBackendAndLoadApp);
+    }
+
+    private void warmBackendAndLoadApp() {
+        for (int attempt = 0; attempt < 10 && !Thread.currentThread().isInterrupted(); attempt++) {
+            HttpURLConnection connection = null;
+            try {
+                connection = (HttpURLConnection) new URL("https://iaq.onrender.com/health").openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(15000);
+                connection.setReadTimeout(15000);
+                connection.setUseCaches(false);
+                if (connection.getResponseCode() == 200) {
+                    runOnUiThread(() -> bridge.getWebView().loadUrl("https://iaq.onrender.com"));
+                    return;
+                }
+            } catch (Exception ignored) {
+                // Render free instances can need several attempts after sleeping.
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
     }
 
     private final class RecognitionBridge {
