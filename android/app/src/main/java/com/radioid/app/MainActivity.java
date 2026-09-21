@@ -98,7 +98,7 @@ public class MainActivity extends BridgeActivity {
                 response = networkResponse.body() == null ? "{}" : networkResponse.body().string();
             }
         } catch (Exception error) {
-            response = "{\"ok\":false,\"error\":\"native_network_error\",\"message\":"
+            response = "{\"ok\":false,\"error\":\"android_connection_detail\",\"message\":"
                 + JSONObject.quote(error.getClass().getSimpleName() + ": " + String.valueOf(error.getMessage())) + "}";
         }
         final int finalStatus = status;
