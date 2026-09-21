@@ -56,8 +56,8 @@ public class MainActivity extends BridgeActivity {
             InputStream input = status >= 200 && status < 400 ? connection.getInputStream() : connection.getErrorStream();
             response = readAll(input);
         } catch (Exception error) {
-            response = new JSONObject().put("ok", false).put("error", "native_network_error")
-                .put("message", error.getClass().getSimpleName()).toString();
+            response = "{\"ok\":false,\"error\":\"native_network_error\",\"message\":"
+                + JSONObject.quote(error.getClass().getSimpleName()) + "}";
         } finally {
             if (connection != null) connection.disconnect();
         }
