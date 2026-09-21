@@ -54,7 +54,7 @@ public final class RadioPlaybackService extends MediaLibraryService {
             "https://s2.radio.co/s0dc6b5c9b/listen",
             "https://www.google.com/s2/favicons?domain=samiswoiradio.co.uk&sz=256"),
         new Station("fix", "Fix Radio", "United Kingdom",
-            "https://iaq.onrender.com/api/stream/fix",
+            "https://stream.rcs.revma.com/pq7npt2nzbuvv",
             "https://www.google.com/s2/favicons?domain=fixradio.co.uk&sz=256"),
         new Station("zet", "Radio ZET", "Poland",
             "https://zt.cdn.eurozet.pl/zet-net.mp3",

@@ -13,7 +13,7 @@ const types = {
 };
 const STREAMS = {
   sami: 'https://s2.radio.co/s0dc6b5c9b/listen',
-  fix: 'https://n06a-eu.rcs.revma.com/gnys6kxst8tvv',
+  fix: 'https://stream.rcs.revma.com/pq7npt2nzbuvv',
   prl: 'https://stream.rcs.revma.com/prfmwmwy768uv'
 };
 const agents = {
