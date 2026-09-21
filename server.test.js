@@ -100,6 +100,22 @@ test('asynchronous recognition returns a short job response', async t => {
   assert.equal(result.body.error, 'audd_not_configured');
 });
 
+test('iframe recognition returns a callback page for Android WebView', async t => {
+  const previous = process.env.AUDD_API_TOKEN;
+  delete process.env.AUDD_API_TOKEN;
+  const server = require('./server').createServer().listen(0, '127.0.0.1');
+  t.after(() => { server.close(); if (previous) process.env.AUDD_API_TOKEN = previous; });
+  await new Promise(resolve => server.once('listening', resolve));
+  const address = server.address();
+  const body = await new Promise((resolve, reject) => {
+    http.get({ host: '127.0.0.1', port: address.port, path: '/api/recognize-frame?station=prl&requestId=test-1' }, res => {
+      let out = ''; res.on('data', chunk => { out += chunk; }); res.on('end', () => resolve(out));
+    }).on('error', reject);
+  });
+  assert.match(body, /__radioIdNativeResult\("test-1",503/);
+  assert.match(body, /audd_not_configured/);
+});
+
 test('allows API requests from the bundled Capacitor app', async t => {
   const server = require('./server').createServer().listen(0, '127.0.0.1');
   t.after(() => server.close());

@@ -72,7 +72,15 @@ public class MainActivity extends BridgeActivity {
     private final class RecognitionBridge {
         @JavascriptInterface
         public void recognize(String station, String streamUrl, String requestId) {
-            recognitionExecutor.execute(() -> performRecognition(station, streamUrl, requestId));
+            runOnUiThread(() -> {
+                String script = "(function(){var f=document.createElement('iframe');"
+                    + "f.style.display='none';f.src='https://iaq.onrender.com/api/recognize-frame?station='"
+                    + "+encodeURIComponent(" + JSONObject.quote(station) + ")+'&url='+encodeURIComponent("
+                    + JSONObject.quote(streamUrl) + ")+'&requestId='+encodeURIComponent("
+                    + JSONObject.quote(requestId) + ")+'&_='+Date.now();document.body.appendChild(f);"
+                    + "setTimeout(function(){f.remove()},95000)})()";
+                bridge.getWebView().evaluateJavascript(script, null);
+            });
         }
     }
 

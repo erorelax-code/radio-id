@@ -29,6 +29,13 @@ function json(res, code, obj) {
   res.end(JSON.stringify(obj));
 }
 
+function recognitionFrame(res, requestId, code, body) {
+  const id = JSON.stringify(String(requestId || '')).replace(/</g, '\\u003c');
+  const payload = JSON.stringify(JSON.stringify(body)).replace(/</g, '\\u003c');
+  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+  res.end(`<!doctype html><meta charset="utf-8"><script>parent.__radioIdNativeResult(${id},${code},${payload})<\/script>`);
+}
+
 function privateIP(ip) {
   if (net.isIP(ip) === 4) {
     const a = ip.split('.').map(Number);
@@ -267,6 +274,10 @@ function createServer() {
       if (!job) return json(res, 404, { ok: false, error: 'job_not_found' });
       if (job.state === 'pending') return json(res, 200, { ok: true, pending: true });
       return json(res, job.code, job.body);
+    }
+    if (u.pathname === '/api/recognize-frame' && req.method === 'GET') {
+      const payload = { station: u.searchParams.get('station'), url: u.searchParams.get('url') };
+      return recognizePayload(payload).then(result => recognitionFrame(res, u.searchParams.get('requestId'), result.code, result.body));
     }
     const match = u.pathname.match(/^\/api\/stream\/(sami|fix|prl)$/);
     if (match) return proxyStream(req, res, STREAMS[match[1]]);
