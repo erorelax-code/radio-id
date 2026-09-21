@@ -10,17 +10,28 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import okhttp3.HttpUrl;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 public class MainActivity extends BridgeActivity {
     private final ExecutorService recognitionExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService startupExecutor = Executors.newSingleThreadExecutor();
+    private final OkHttpClient recognitionClient = new OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(70, TimeUnit.SECONDS)
+        .callTimeout(80, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .build();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,27 +75,31 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void performRecognition(String station, String streamUrl, String requestId) {
-        HttpURLConnection connection = null;
         int status = 0;
         String response;
         try {
-            String query = "station=" + URLEncoder.encode(station, "UTF-8")
-                + "&url=" + URLEncoder.encode(streamUrl, "UTF-8")
-                + "&_=" + System.currentTimeMillis();
-            connection = (HttpURLConnection) new URL("https://iaq.onrender.com/api/recognize?" + query).openConnection();
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(30000);
-            connection.setReadTimeout(60000);
-            connection.setUseCaches(false);
-            connection.setRequestProperty("Accept", "application/json");
-            status = connection.getResponseCode();
-            InputStream input = status >= 200 && status < 400 ? connection.getInputStream() : connection.getErrorStream();
-            response = readAll(input);
+            HttpUrl url = new HttpUrl.Builder()
+                .scheme("https")
+                .host("iaq.onrender.com")
+                .addPathSegments("api/recognize")
+                .addQueryParameter("station", station)
+                .addQueryParameter("url", streamUrl)
+                .addQueryParameter("_", Long.toString(System.currentTimeMillis()))
+                .build();
+            Request request = new Request.Builder()
+                .url(url)
+                .header("Accept", "application/json")
+                .header("User-Agent", "RadioID-Android/2.1")
+                .header("Cache-Control", "no-cache")
+                .get()
+                .build();
+            try (Response networkResponse = recognitionClient.newCall(request).execute()) {
+                status = networkResponse.code();
+                response = networkResponse.body() == null ? "{}" : networkResponse.body().string();
+            }
         } catch (Exception error) {
             response = "{\"ok\":false,\"error\":\"native_network_error\",\"message\":"
-                + JSONObject.quote(error.getClass().getSimpleName()) + "}";
-        } finally {
-            if (connection != null) connection.disconnect();
+                + JSONObject.quote(error.getClass().getSimpleName() + ": " + String.valueOf(error.getMessage())) + "}";
         }
         final int finalStatus = status;
         final String finalResponse = response;
