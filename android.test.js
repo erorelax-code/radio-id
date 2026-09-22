@@ -37,7 +37,7 @@ test('Android opens the bundled Radio ID interface immediately', () => {
   assert.doesNotMatch(activity, /HEALTH_URL|ProgressBar|waitForServer/);
   const page = fs.readFileSync('index.html', 'utf8');
   assert.match(page, /NATIVE_BACKEND=location\.hostname==='localhost'/);
-  assert.match(page, /webview_timeout'\)\),180000/);
+  assert.match(page, /webview_timeout'\)\),12000/);
 });
 
 test('Android launch theme switches to the no-action-bar theme', () => {
