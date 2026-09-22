@@ -1,68 +1,83 @@
 package com.radioid.app;
 
-import android.content.ComponentName;
+import android.annotation.SuppressLint;
+import android.content.Intent;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.View;
+import android.webkit.CookieManager;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
-import androidx.browser.customtabs.CustomTabsClient;
-import androidx.browser.customtabs.CustomTabsIntent;
-import androidx.browser.customtabs.CustomTabsServiceConnection;
-import androidx.browser.customtabs.CustomTabsSession;
-import androidx.browser.trusted.TrustedWebActivityIntentBuilder;
+import androidx.activity.OnBackPressedCallback;
 
-import com.getcapacitor.BridgeActivity;
+import androidx.appcompat.app.AppCompatActivity;
 
-public class MainActivity extends BridgeActivity {
-    private static final Uri RADIO_ID_URL = Uri.parse("https://iaq.onrender.com");
-    private boolean launched;
+public class MainActivity extends AppCompatActivity {
+    private static final String RADIO_ID_URL = "https://iaq.onrender.com/";
+    private WebView radioWebView;
 
     @Override
+    @SuppressLint("SetJavaScriptEnabled")
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        launchTrustedWebActivity();
+
+        radioWebView = new WebView(this);
+        radioWebView.setBackgroundColor(Color.rgb(3, 15, 32));
+        radioWebView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+
+        WebSettings settings = radioWebView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setDatabaseEnabled(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setAllowContentAccess(true);
+        settings.setAllowFileAccess(false);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+
+        CookieManager.getInstance().setAcceptCookie(true);
+        CookieManager.getInstance().setAcceptThirdPartyCookies(radioWebView, true);
+
+        radioWebView.setWebChromeClient(new WebChromeClient());
+        radioWebView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                Uri url = request.getUrl();
+                if ("iaq.onrender.com".equalsIgnoreCase(url.getHost())) return false;
+                startActivity(new Intent(Intent.ACTION_VIEW, url));
+                return true;
+            }
+        });
+
+        setContentView(radioWebView);
+        if (savedInstanceState == null) radioWebView.loadUrl(RADIO_ID_URL);
+        else radioWebView.restoreState(savedInstanceState);
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (radioWebView.canGoBack()) radioWebView.goBack();
+                else finish();
+            }
+        });
     }
 
-    private void launchTrustedWebActivity() {
-        String browserPackage = CustomTabsClient.getPackageName(this, null);
-        if (browserPackage == null) {
-            launchFallback();
-            return;
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        radioWebView.saveState(outState);
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (radioWebView != null) {
+            radioWebView.stopLoading();
+            radioWebView.destroy();
         }
-
-        boolean bound = CustomTabsClient.bindCustomTabsService(this, browserPackage,
-            new CustomTabsServiceConnection() {
-                @Override
-                public void onCustomTabsServiceConnected(ComponentName name, CustomTabsClient client) {
-                    client.warmup(0L);
-                    CustomTabsSession session = client.newSession(null);
-                    if (session == null) {
-                        launchFallback();
-                        return;
-                    }
-                    launched = true;
-                    new TrustedWebActivityIntentBuilder(RADIO_ID_URL)
-                        .build(session)
-                        .launchTrustedWebActivity(MainActivity.this);
-                    finish();
-                }
-
-                @Override
-                public void onServiceDisconnected(ComponentName name) {
-                    if (!launched) launchFallback();
-                }
-            });
-
-        if (!bound) launchFallback();
-    }
-
-    private void launchFallback() {
-        if (launched) return;
-        launched = true;
-        new CustomTabsIntent.Builder()
-            .setShowTitle(false)
-            .setUrlBarHidingEnabled(true)
-            .build()
-            .launchUrl(this, RADIO_ID_URL);
-        finish();
+        super.onDestroy();
     }
 }
