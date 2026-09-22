@@ -33,6 +33,8 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: radio-id-debug-keystore-v1
+      - name: Show app signing fingerprint
+        run: keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep SHA256
       - name: Build Android debug APK
         working-directory: android
         run: ./gradlew :app:assembleDebug --stacktrace
