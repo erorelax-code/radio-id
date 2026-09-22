@@ -14,6 +14,8 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+      - name: Run project tests
+        run: npm test
       - name: Prepare Capacitor
         run: |
           npm ci
@@ -37,5 +39,5 @@ jobs:
         run: ./gradlew :app:assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: radio-id-v3.2.1-webview-apk
+          name: radio-id-v3.3-stable-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk

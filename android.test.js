@@ -29,3 +29,18 @@ test('native service exposes a browsable radio catalogue', () => {
   assert.match(service, /MEDIA_TYPE_RADIO_STATION/);
 });
 
+
+
+test('Android WebView hides Render warm-up and retries until Radio ID is ready', () => {
+  const activity = fs.readFileSync('android/app/src/main/java/com/radioid/app/MainActivity.java', 'utf8');
+  assert.match(activity, /setVisibility\(View\.INVISIBLE\)/);
+  assert.match(activity, /RETRY_DELAY_MS/);
+  assert.match(activity, /document\.querySelector\('\.app'\)/);
+  assert.match(activity, /showRadio\(\)/);
+});
+
+test('Android launch theme switches to the no-action-bar theme', () => {
+  const styles = fs.readFileSync('android/app/src/main/res/values/styles.xml', 'utf8');
+  assert.match(styles, /postSplashScreenTheme.*AppTheme\.NoActionBar/);
+  assert.match(styles, /Theme\.AppCompat\.DayNight\.NoActionBar/);
+});
