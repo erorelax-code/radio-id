@@ -73,12 +73,15 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void recognize(String station, String streamUrl, String requestId) {
             runOnUiThread(() -> {
-                String script = "(function(){var f=document.createElement('iframe');"
+                String script = "(function(){var rid=" + JSONObject.quote(requestId) + ";"
+                    + "var receive=function(e){if(e.origin!=='https://iaq.onrender.com'||!e.data||e.data.type!=='radio-id-recognition'||e.data.id!==rid)return;"
+                    + "window.removeEventListener('message',receive);window.__radioIdNativeResult(rid,e.data.status,JSON.stringify(e.data.body));};"
+                    + "window.addEventListener('message',receive);var f=document.createElement('iframe');"
                     + "f.style.display='none';f.src='https://iaq.onrender.com/api/recognize-frame?station='"
                     + "+encodeURIComponent(" + JSONObject.quote(station) + ")+'&url='+encodeURIComponent("
                     + JSONObject.quote(streamUrl) + ")+'&requestId='+encodeURIComponent("
                     + JSONObject.quote(requestId) + ")+'&_='+Date.now();document.body.appendChild(f);"
-                    + "setTimeout(function(){f.remove()},95000)})()";
+                    + "setTimeout(function(){window.removeEventListener('message',receive);f.remove()},95000)})()";
                 bridge.getWebView().evaluateJavascript(script, null);
             });
         }
