@@ -112,7 +112,7 @@ test('iframe recognition returns a callback page for Android WebView', async t =
       let out = ''; res.on('data', chunk => { out += chunk; }); res.on('end', () => resolve(out));
     }).on('error', reject);
   });
-  assert.match(body, /__radioIdNativeResult\("test-1",503/);
+  assert.match(body, /postMessage\(\{type:'radio-id-recognition',id:"test-1",status:503/);
   assert.match(body, /audd_not_configured/);
 });
 

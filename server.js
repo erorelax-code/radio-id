@@ -31,9 +31,9 @@ function json(res, code, obj) {
 
 function recognitionFrame(res, requestId, code, body) {
   const id = JSON.stringify(String(requestId || '')).replace(/</g, '\\u003c');
-  const payload = JSON.stringify(JSON.stringify(body)).replace(/</g, '\\u003c');
+  const payload = JSON.stringify(body).replace(/</g, '\\u003c');
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-  res.end(`<!doctype html><meta charset="utf-8"><script>parent.__radioIdNativeResult(${id},${code},${payload})<\/script>`);
+  res.end(`<!doctype html><meta charset="utf-8"><script>parent.postMessage({type:'radio-id-recognition',id:${id},status:${code},body:${payload}},'*')<\/script>`);
 }
 
 function privateIP(ip) {
