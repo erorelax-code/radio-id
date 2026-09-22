@@ -47,14 +47,14 @@ test('Android launch theme switches to the no-action-bar theme', () => {
 });
 
 
-test('bundled Android recognition uses an HTTPS iframe without CORS preflight', () => {
+test('Android recognition uses short start and status requests with visible diagnostics', () => {
   const page = fs.readFileSync('index.html', 'utf8');
-  assert.match(page, /createElement\('iframe'\)/);
-  assert.match(page, /\/api\/recognize-frame\?station=/);
-  assert.match(page, /const useNative=!!NATIVE_BACKEND/);
-  assert.doesNotMatch(page, /window\.RadioIdNative\.recognize/);
+  assert.match(page, /\/api\/recognize\/start/);
+  assert.match(page, /\/api\/recognize\/status/);
+  assert.match(page, /recognitionProgress/);
+  assert.match(page, /STATUS timeout po 90 s/);
+  assert.doesNotMatch(page, /createElement\('iframe'\)/);
 });
-
 
 test('changing station cancels stale recognition and unlocks the button', () => {
   const page = fs.readFileSync('index.html', 'utf8');

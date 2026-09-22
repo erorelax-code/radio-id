@@ -100,6 +100,21 @@ test('asynchronous recognition returns a short job response', async t => {
   assert.equal(result.body.error, 'audd_not_configured');
 });
 
+test('Android can start recognition with a simple GET and inspect its result', async t => {
+  const previous = process.env.AUDD_API_TOKEN;
+  delete process.env.AUDD_API_TOKEN;
+  const server = require('./server').createServer().listen(0, '127.0.0.1');
+  t.after(() => { server.close(); if (previous) process.env.AUDD_API_TOKEN = previous; });
+  await new Promise(resolve => server.once('listening', resolve));
+  const start = await request(server, { path: '/api/recognize/start?station=prl', method: 'GET' });
+  assert.equal(start.status, 202);
+  assert.equal(start.body.stage, 'queued');
+  await new Promise(resolve => setImmediate(resolve));
+  const result = await request(server, { path: '/api/recognize/status?id=' + encodeURIComponent(start.body.job) });
+  assert.equal(result.status, 503);
+  assert.equal(result.body.error, 'audd_not_configured');
+});
+
 test('iframe recognition returns a callback page for Android WebView', async t => {
   const previous = process.env.AUDD_API_TOKEN;
   delete process.env.AUDD_API_TOKEN;
