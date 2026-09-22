@@ -52,6 +52,8 @@ test('Android recognition uses short start and status requests with visible diag
   assert.match(page, /\/api\/recognize\/start/);
   assert.match(page, /\/api\/recognize\/status/);
   assert.match(page, /recognitionProgress/);
+  assert.match(page, /webview_timeout'\)\),12000/);
+  assert.match(page, /setInterval\(\(\)=>recognitionProgress/);
   assert.match(page, /STATUS timeout po 90 s/);
   assert.doesNotMatch(page, /createElement\('iframe'\)/);
 });
