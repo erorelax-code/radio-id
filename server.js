@@ -262,6 +262,14 @@ function createServer() {
       return res.end();
     }
     const u = new URL(req.url, 'http://localhost');
+    if (u.pathname === '/.well-known/assetlinks.json') return json(res, 200, [{
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: {
+        namespace: 'android_app',
+        package_name: 'com.radioid.app',
+        sha256_cert_fingerprints: ['C7:79:9B:0C:7E:9A:15:DF:77:17:3E:2C:62:E9:BA:61:7E:CC:3F:D1:D4:C2:71:C0:E7:9E:6E:FE:90:CD:FE:CA']
+      }
+    }]);
     if (u.pathname === '/health') return json(res, 200, { ok: true, app: 'Radio ID v18', auddConfigured: !!process.env.AUDD_API_TOKEN });
     if (u.pathname === '/api/recognize') {
       if (req.method === 'GET') return recognize(req, res, { station: u.searchParams.get('station'), url: u.searchParams.get('url') });

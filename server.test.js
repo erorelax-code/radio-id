@@ -129,3 +129,14 @@ test('allows API requests from the bundled Capacitor app', async t => {
   assert.equal(response.headers['access-control-allow-origin'], '*');
   assert.match(response.headers['access-control-allow-methods'], /POST/);
 });
+
+
+test('publishes Digital Asset Links for the full-screen Android app', async t => {
+  const server = require('./server').createServer().listen(0, '127.0.0.1');
+  t.after(() => server.close());
+  await new Promise(resolve => server.once('listening', resolve));
+  const response = await request(server, { path: '/.well-known/assetlinks.json' });
+  assert.equal(response.status, 200);
+  assert.equal(response.body[0].target.package_name, 'com.radioid.app');
+  assert.equal(response.body[0].target.sha256_cert_fingerprints[0], 'C7:79:9B:0C:7E:9A:15:DF:77:17:3E:2C:62:E9:BA:61:7E:CC:3F:D1:D4:C2:71:C0:E7:9E:6E:FE:90:CD:FE:CA');
+});
