@@ -198,15 +198,19 @@ function normalizeAuddResult(auddResponse) {
   };
 }
 
-async function recognizePayload(payload) {
+async function recognizePayload(payload, onStage = () => {}) {
   if (!process.env.AUDD_API_TOKEN) return { code: 503, body: { ok: false, error: 'audd_not_configured' } };
   try {
+    onStage('resolving_stream');
     const raw = resolveStreamSource(payload);
     if (!raw) return { code: 400, body: { ok: false, error: 'missing_or_invalid_stream' } };
+    onStage('capturing_audio');
     const clip = await capture(raw, 12);
     if (clip.length < 4096) return { code: 502, body: { ok: false, error: 'audio_clip_too_small' } };
+    onStage('contacting_audd', { bytes: clip.length });
     const result = await auddRecognize(clip);
     if (result.status !== 'success') return { code: 502, body: { ok: false, error: 'audd_error', details: result.error || null } };
+    onStage('complete', { bytes: clip.length });
     return { code: 200, body: normalizeAuddResult(result) };
   } catch (error) {
     return { code: 502, body: { ok: false, error: error.message || 'recognition_failed' } };
@@ -223,18 +227,23 @@ async function recognize(req, res, suppliedPayload = null) {
   return json(res, result.code, result.body);
 }
 
-async function startRecognitionJob(req, res) {
-  let payload;
-  try { const body = await readBody(req); payload = body ? JSON.parse(body) : {}; }
-  catch { return json(res, 400, { ok: false, error: 'invalid_json' }); }
+async function startRecognitionJob(req, res, suppliedPayload = null) {
+  let payload = suppliedPayload;
+  if (!payload) {
+    try { const body = await readBody(req); payload = body ? JSON.parse(body) : {}; }
+    catch { return json(res, 400, { ok: false, error: 'invalid_json' }); }
+  }
   if (!resolveStreamSource(payload)) return json(res, 400, { ok: false, error: 'missing_or_invalid_stream' });
   const id = crypto.randomUUID();
-  recognitionJobs.set(id, { state: 'pending', created: Date.now() });
-  recognizePayload(payload).then(result => {
-    recognitionJobs.set(id, { state: 'done', created: Date.now(), ...result });
+  const created = Date.now();
+  recognitionJobs.set(id, { state: 'pending', stage: 'queued', created });
+  recognizePayload(payload, (stage, details = {}) => {
+    recognitionJobs.set(id, { state: 'pending', stage, created, updated: Date.now(), ...details });
+  }).then(result => {
+    recognitionJobs.set(id, { state: 'done', stage: 'complete', created, updated: Date.now(), ...result });
     setTimeout(() => recognitionJobs.delete(id), 5 * 60 * 1000).unref?.();
   });
-  return json(res, 202, { ok: true, job: id });
+  return json(res, 202, { ok: true, job: id, stage: 'queued' });
 }
 
 function serve(req, res, pathname) {
@@ -276,11 +285,18 @@ function createServer() {
       if (req.method === 'POST') return recognize(req, res);
       return json(res, 405, { ok: false, error: 'method_not_allowed' });
     }
-    if (u.pathname === '/api/recognize/start' && req.method === 'POST') return startRecognitionJob(req, res);
+    if (u.pathname === '/api/recognize/start') {
+      if (req.method === 'GET') return startRecognitionJob(req, res, { station: u.searchParams.get('station'), url: u.searchParams.get('url') });
+      if (req.method === 'POST') return startRecognitionJob(req, res);
+      return json(res, 405, { ok: false, error: 'method_not_allowed' });
+    }
     if (u.pathname === '/api/recognize/status' && req.method === 'GET') {
       const job = recognitionJobs.get(u.searchParams.get('id'));
       if (!job) return json(res, 404, { ok: false, error: 'job_not_found' });
-      if (job.state === 'pending') return json(res, 200, { ok: true, pending: true });
+      if (job.state === 'pending') return json(res, 200, {
+        ok: true, pending: true, stage: job.stage, elapsedMs: Date.now() - job.created,
+        bytes: job.bytes || 0
+      });
       return json(res, job.code, job.body);
     }
     if (u.pathname === '/api/recognize-frame' && req.method === 'GET') {
