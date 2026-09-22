@@ -37,7 +37,7 @@ test('Android opens the bundled Radio ID interface immediately', () => {
   assert.doesNotMatch(activity, /HEALTH_URL|ProgressBar|waitForServer/);
   const page = fs.readFileSync('index.html', 'utf8');
   assert.match(page, /NATIVE_BACKEND=location\.hostname==='localhost'/);
-  assert.match(page, /webview_timeout'\)\),180000/);
+  assert.match(page, /webview_timeout'\)\),12000/);
 });
 
 test('Android launch theme switches to the no-action-bar theme', () => {
@@ -52,6 +52,8 @@ test('Android recognition uses short start and status requests with visible diag
   assert.match(page, /\/api\/recognize\/start/);
   assert.match(page, /\/api\/recognize\/status/);
   assert.match(page, /recognitionProgress/);
+  assert.match(page, /webview_timeout'\)\),12000/);
+  assert.match(page, /setInterval\(\(\)=>recognitionProgress/);
   assert.match(page, /STATUS timeout po 90 s/);
   assert.doesNotMatch(page, /createElement\('iframe'\)/);
 });
