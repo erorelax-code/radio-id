@@ -31,14 +31,13 @@ test('native service exposes a browsable radio catalogue', () => {
 
 
 
-test('Android WebView hides Render warm-up and retries until Radio ID is ready', () => {
+test('Android opens the bundled Radio ID interface immediately', () => {
   const activity = fs.readFileSync('android/app/src/main/java/com/radioid/app/MainActivity.java', 'utf8');
-  assert.match(activity, /setVisibility\(View\.INVISIBLE\)/);
-  assert.doesNotMatch(activity, /RETRY_DELAY_MS/);
-  assert.match(activity, /HEALTH_URL/);
-  assert.match(activity, /setReadTimeout\(120000\)/);
-  assert.match(activity, /document\.querySelector\('\.app'\)/);
-  assert.match(activity, /showRadio\(\)/);
+  assert.match(activity, /extends BridgeActivity/);
+  assert.doesNotMatch(activity, /HEALTH_URL|ProgressBar|waitForServer/);
+  const page = fs.readFileSync('index.html', 'utf8');
+  assert.match(page, /NATIVE_BACKEND=location\.hostname==='localhost'/);
+  assert.match(page, /webview_timeout'\)\),180000/);
 });
 
 test('Android launch theme switches to the no-action-bar theme', () => {
