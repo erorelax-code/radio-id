@@ -45,3 +45,12 @@ test('Android launch theme switches to the no-action-bar theme', () => {
   assert.match(styles, /postSplashScreenTheme.*AppTheme\.NoActionBar/);
   assert.match(styles, /Theme\.AppCompat\.DayNight\.NoActionBar/);
 });
+
+
+test('bundled Android recognition uses an HTTPS iframe without CORS preflight', () => {
+  const page = fs.readFileSync('index.html', 'utf8');
+  assert.match(page, /createElement\('iframe'\)/);
+  assert.match(page, /\/api\/recognize-frame\?station=/);
+  assert.match(page, /const useNative=!!NATIVE_BACKEND/);
+  assert.doesNotMatch(page, /window\.RadioIdNative\.recognize/);
+});
