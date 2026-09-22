@@ -1,6 +1,7 @@
 package com.radioid.app;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
@@ -13,17 +14,16 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-import androidx.activity.OnBackPressedCallback;
+import androidx.core.splashscreen.SplashScreen;
 
-import androidx.appcompat.app.AppCompatActivity;
-
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
     private static final String RADIO_ID_URL = "https://iaq.onrender.com/";
     private WebView radioWebView;
 
     @Override
     @SuppressLint("SetJavaScriptEnabled")
     protected void onCreate(Bundle savedInstanceState) {
+        SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
 
         radioWebView = new WebView(this);
@@ -57,13 +57,12 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState == null) radioWebView.loadUrl(RADIO_ID_URL);
         else radioWebView.restoreState(savedInstanceState);
 
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                if (radioWebView.canGoBack()) radioWebView.goBack();
-                else finish();
-            }
-        });
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (radioWebView != null && radioWebView.canGoBack()) radioWebView.goBack();
+        else super.onBackPressed();
     }
 
     @Override
