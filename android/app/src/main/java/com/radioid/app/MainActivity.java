@@ -25,19 +25,24 @@ import android.widget.TextView;
 
 import androidx.core.splashscreen.SplashScreen;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class MainActivity extends Activity {
     private static final String RADIO_ID_URL = "https://iaq.onrender.com/";
-    private static final long RETRY_DELAY_MS = 4000L;
+    private static final String HEALTH_URL = "https://iaq.onrender.com/health";
+
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     private WebView radioWebView;
     private View loadingView;
+    private volatile boolean destroyed;
     private boolean pageReady;
-
-    private final Runnable retryLoad = () -> {
-        if (!isFinishing() && !isDestroyed() && !pageReady && radioWebView != null) {
-            radioWebView.loadUrl(RADIO_ID_URL, java.util.Collections.singletonMap("Cache-Control", "no-cache"));
-        }
-    };
 
     @Override
     @SuppressLint("SetJavaScriptEnabled")
@@ -58,7 +63,6 @@ public class MainActivity extends Activity {
         settings.setAllowContentAccess(true);
         settings.setAllowFileAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
-        settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(radioWebView, true);
         radioWebView.setWebChromeClient(new WebChromeClient());
@@ -76,7 +80,10 @@ public class MainActivity extends Activity {
                 if (!url.startsWith(RADIO_ID_URL)) return;
                 view.evaluateJavascript(
                     "(function(){return !!(document.querySelector('.app') && document.getElementById('player') && typeof recognize === 'function')})()",
-                    result -> { if ("true".equals(result)) showRadio(); else scheduleRetry(); }
+                    result -> {
+                        if ("true".equals(result)) showRadio();
+                        else if (!destroyed) waitForServer();
+                    }
                 );
             }
         });
@@ -84,7 +91,45 @@ public class MainActivity extends Activity {
         root.addView(radioWebView, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.addView(loadingView, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root);
-        radioWebView.loadUrl(RADIO_ID_URL, java.util.Collections.singletonMap("Cache-Control", "no-cache"));
+        waitForServer();
+    }
+
+    private void waitForServer() {
+        networkExecutor.execute(() -> {
+            while (!destroyed && !pageReady) {
+                HttpURLConnection connection = null;
+                try {
+                    connection = (HttpURLConnection) new URL(HEALTH_URL).openConnection();
+                    connection.setConnectTimeout(120000);
+                    connection.setReadTimeout(120000);
+                    connection.setRequestProperty("Accept", "application/json");
+                    connection.setRequestProperty("Cache-Control", "no-cache");
+                    int status = connection.getResponseCode();
+                    StringBuilder body = new StringBuilder();
+                    if (status == 200) {
+                        try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+                            String line;
+                            while ((line = reader.readLine()) != null) body.append(line);
+                        }
+                    }
+                    if (status == 200 && body.toString().contains("\"ok\":true")) {
+                        handler.post(() -> {
+                            if (!destroyed && !pageReady && radioWebView != null) {
+                                radioWebView.loadUrl(RADIO_ID_URL);
+                            }
+                        });
+                        return;
+                    }
+                } catch (Exception ignored) {
+                    // A sleeping free Render instance can keep the first request open.
+                } finally {
+                    if (connection != null) connection.disconnect();
+                }
+                if (!destroyed && !pageReady) {
+                    try { Thread.sleep(3000L); } catch (InterruptedException ignored) { return; }
+                }
+            }
+        });
     }
 
     private View createLoadingView() {
@@ -104,7 +149,7 @@ public class MainActivity extends Activity {
         titleParams.topMargin = 28;
         loading.addView(title, titleParams);
         TextView message = new TextView(this);
-        message.setText("Uruchamiam radio…\nPierwsze uruchomienie może potrwać około minuty.");
+        message.setText("Łączę z radiem…");
         message.setTextColor(Color.rgb(154, 169, 197));
         message.setTextSize(16);
         message.setGravity(Gravity.CENTER);
@@ -114,16 +159,9 @@ public class MainActivity extends Activity {
         return loading;
     }
 
-    private void scheduleRetry() {
-        handler.removeCallbacks(retryLoad);
-        handler.postDelayed(retryLoad, RETRY_DELAY_MS);
-    }
-
     private void showRadio() {
         if (pageReady) return;
         pageReady = true;
-        handler.removeCallbacks(retryLoad);
-        radioWebView.getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
         radioWebView.setVisibility(View.VISIBLE);
         loadingView.setVisibility(View.GONE);
     }
@@ -136,6 +174,8 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        destroyed = true;
+        networkExecutor.shutdownNow();
         handler.removeCallbacksAndMessages(null);
         if (radioWebView != null) {
             radioWebView.stopLoading();

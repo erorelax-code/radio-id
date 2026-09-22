@@ -34,7 +34,7 @@ test('native service exposes a browsable radio catalogue', () => {
 test('Android WebView hides Render warm-up and retries until Radio ID is ready', () => {
   const activity = fs.readFileSync('android/app/src/main/java/com/radioid/app/MainActivity.java', 'utf8');
   assert.match(activity, /setVisibility\(View\.INVISIBLE\)/);
-  assert.match(activity, /RETRY_DELAY_MS/);
+  assert.doesNotMatch(activity, /RETRY_DELAY_MS/);\n  assert.match(activity, /HEALTH_URL/);\n  assert.match(activity, /setReadTimeout\(120000\)/);
   assert.match(activity, /document\.querySelector\('\.app'\)/);
   assert.match(activity, /showRadio\(\)/);
 });
