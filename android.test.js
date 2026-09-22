@@ -54,3 +54,12 @@ test('bundled Android recognition uses an HTTPS iframe without CORS preflight', 
   assert.match(page, /const useNative=!!NATIVE_BACKEND/);
   assert.doesNotMatch(page, /window\.RadioIdNative\.recognize/);
 });
+
+
+test('changing station cancels stale recognition and unlocks the button', () => {
+  const page = fs.readFileSync('index.html', 'utf8');
+  assert.match(page, /function cancelRecognition\(\)/);
+  assert.match(page, /cancelRecognition\(\);current=s/);
+  assert.match(page, /const run=\+\+recognitionRun/);
+  assert.match(page, /run===recognitionRun/);
+});
