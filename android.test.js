@@ -47,6 +47,13 @@ test('Android launch theme switches to the no-action-bar theme', () => {
 });
 
 
+test('Capacitor native HTTP is enabled for Android API calls', () => {
+  const config = fs.readFileSync('capacitor.config.json', 'utf8');
+  assert.match(config, /\"CapacitorHttp\"\s*:\s*\{\s*\"enabled\"\s*:\s*true/);
+  const page = fs.readFileSync('index.html', 'utf8');
+  assert.ok(page.indexOf('const plugin=nativeHttp()') < page.indexOf('browserFetch(url,options)'));
+});
+
 test('Android recognition uses short start and status requests with visible diagnostics', () => {
   const page = fs.readFileSync('index.html', 'utf8');
   assert.match(page, /\/api\/recognize\/start/);
