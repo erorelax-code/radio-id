@@ -8,7 +8,7 @@
 <style>@media(max-width:700px){.native-app .app{padding-top:52px;padding-bottom:205px}.native-app .bottom-nav{height:98px;padding-bottom:30px}.native-app .mini{bottom:100px}.native-app .toast{bottom:188px}}</style>
 <script>
 const status=document.querySelector('#status');
-const NATIVE_BACKEND=location.hostname==='localhost'?'https://iaq.onrender.com':'';
+const NATIVE_BACKEND=location.hostname==='localhost'?'https://radio-id-vaaq.onrender.com':'';
 if(NATIVE_BACKEND)document.documentElement.classList.add('native-app');
 const browserFetch=window.fetch.bind(window);
 function nativeHttp(){return window.Capacitor?.Plugins?.CapacitorHttp}
