@@ -37,7 +37,7 @@ test('Android opens the bundled Radio ID interface immediately', () => {
   assert.doesNotMatch(activity, /HEALTH_URL|ProgressBar|waitForServer/);
   const page = fs.readFileSync('index.html', 'utf8');
   assert.match(page, /NATIVE_BACKEND=location\.hostname==='localhost'/);
-  assert.match(page, /webview_timeout'\)\),12000/);
+  assert.match(page, /connectTimeout:20000/);
 });
 
 test('Android launch theme switches to the no-action-bar theme', () => {
@@ -47,12 +47,20 @@ test('Android launch theme switches to the no-action-bar theme', () => {
 });
 
 
+test('Capacitor native HTTP is enabled for Android API calls', () => {
+  const config = fs.readFileSync('capacitor.config.json', 'utf8');
+  assert.match(config, /\"CapacitorHttp\"\s*:\s*\{\s*\"enabled\"\s*:\s*true/);
+  const page = fs.readFileSync('index.html', 'utf8');
+  const nativeFunction = page.slice(page.indexOf('async function nativeBackendFetch'), page.indexOf('window.fetch='));
+  assert.ok(nativeFunction.indexOf('const plugin=nativeHttp()') < nativeFunction.indexOf('browserFetch(url,options)'));
+});
+
 test('Android recognition uses short start and status requests with visible diagnostics', () => {
   const page = fs.readFileSync('index.html', 'utf8');
   assert.match(page, /\/api\/recognize\/start/);
   assert.match(page, /\/api\/recognize\/status/);
   assert.match(page, /recognitionProgress/);
-  assert.match(page, /webview_timeout'\)\),12000/);
+  assert.match(page, /connectTimeout:20000/);
   assert.match(page, /setInterval\(\(\)=>recognitionProgress/);
   assert.match(page, /STATUS timeout po 90 s/);
   assert.doesNotMatch(page, /createElement\('iframe'\)/);
