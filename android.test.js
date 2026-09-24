@@ -73,3 +73,37 @@ test('changing station cancels stale recognition and unlocks the button', () => 
   assert.match(page, /const run=\+\+recognitionRun/);
   assert.match(page, /run===recognitionRun/);
 });
+
+test('station catalogue separates language and country and inline script parses', () => {
+  const vm = require('node:vm');
+  const page = fs.readFileSync('index.html', 'utf8');
+  const script = page.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(script, 'inline application script exists');
+  assert.doesNotThrow(() => new vm.Script(script[1]));
+  assert.match(page, /id="languageFilter"/);
+  assert.match(page, /id="countryFilter"/);
+  assert.match(page, /function stationMatches\(s\)/);
+  assert.match(page, /\/stations\/search\?/);
+});
+
+
+test('language and country filters do not mix Polish and English stations', () => {
+  const vm = require('node:vm');
+  const page = fs.readFileSync('index.html', 'utf8');
+  const source = page.match(/function stationMatches\(s\)\{[^\n]+\}/);
+  assert.ok(source);
+  const scope = {selectedLanguage: 'polish', selectedCountry: ''};
+  const matches = vm.runInNewContext(source[0] + '; stationMatches', scope);
+  const polishUK = {language: 'polish', countrycode: 'GB'};
+  const englishUK = {language: 'english', countrycode: 'GB'};
+  const polishPL = {language: 'polish', countrycode: 'PL'};
+  assert.equal(matches(polishUK), true);
+  assert.equal(matches(englishUK), false);
+  scope.selectedCountry = 'PL';
+  assert.equal(matches(polishUK), false);
+  assert.equal(matches(polishPL), true);
+  scope.selectedLanguage = 'english';
+  scope.selectedCountry = 'GB';
+  assert.equal(matches(englishUK), true);
+  assert.equal(matches(polishUK), false);
+});

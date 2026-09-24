@@ -1,6 +1,6 @@
 {
-  "appId": "com.radioid.app",
-  "appName": "Radio ID",
+  "appId": "com.radioid.timer",
+  "appName": "Radio ID Timer",
   "webDir": "www",
   "server": {
     "androidScheme": "https",
