@@ -37,7 +37,11 @@ jobs:
       - name: Build Android debug APK
         working-directory: android
         run: ./gradlew :app:assembleDebug --stacktrace
+      - name: Verify installable APK
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs android/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk | head -1
       - uses: actions/upload-artifact@v4
         with:
-          name: radio-id-v3.5.2-native-http-enabled-apk
+          name: radio-id-v3.5.3-sleep-timer-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
