@@ -188,7 +188,7 @@ test('language catalogue removes tags, numbers, bad labels and duplicate ISO lan
     {name:'invalid123',iso_639:'de',stationcount:9}
   ]);
   assert.equal(languages.filter(x => x.iso_639==='en').length, 1);
-  assert.equal(languages.find(x => x.iso_639==='ak').name, 'akan');
+  assert.ok(!languages.some(x => x.iso_639==='ak'));
   assert.ok(languages.some(x => x.iso_639==='ast'));
   assert.ok(languages.every(x => !/[#0-9]/.test(x.name)));
 });
@@ -204,4 +204,11 @@ test('searchable language dialog keeps filters and supports accent-insensitive s
   assert.match(page, /function selectLanguage\(name\)\{languageFilter.value=name;closeLanguagePicker\(\);changeStationFilters\(\)\}/);
   const searchKey = vm.runInNewContext(script.match(/function searchKey\(value\)\{[^\n]+\}/)[0]+';searchKey', {appLocale:'pl'});
   assert.equal(searchKey('Français'), 'francais');
+});
+
+test('language picker displays flags and recognition status hides internal test IDs', () => {
+  const page = fs.readFileSync('index.html', 'utf8');
+  assert.match(page, /languageFlag\(x\.iso_639\)/);
+  assert.match(page, /languageFlag\(chosen\.iso_639\)/);
+  assert.doesNotMatch(page, /<small class="muted">\$\{esc\(t\('test'\)\)\}/);
 });
