@@ -212,3 +212,17 @@ test('language picker displays flags and recognition status hides internal test 
   assert.match(page, /languageFlag\(chosen\.iso_639\)/);
   assert.doesNotMatch(page, /<small class="muted">\$\{esc\(t\('test'\)\)\}/);
 });
+
+test('Android lock screen uses the same native media session as app playback', () => {
+  const activity = fs.readFileSync('android/app/src/main/java/com/radioid/app/MainActivity.java', 'utf8');
+  const plugin = fs.readFileSync('android/app/src/main/java/com/radioid/app/RadioPlayerPlugin.java', 'utf8');
+  const page = fs.readFileSync('index.html', 'utf8');
+  assert.match(activity, /registerPlugin\(RadioPlayerPlugin\.class\)/);
+  assert.match(plugin, /new MediaController\.Builder/);
+  assert.match(plugin, /new ComponentName\(getContext\(\), RadioPlaybackService\.class\)/);
+  assert.match(plugin, /connected\.setMediaItem\(item\)/);
+  assert.match(plugin, /connected\.play\(\)/);
+  assert.match(plugin, /connected\.pause\(\)/);
+  assert.match(page, /nativePlayer\.play\(\{mediaId:s\.id/);
+  assert.match(page, /nativePlayer\.stop\(\)/);
+});
