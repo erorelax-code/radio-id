@@ -227,14 +227,12 @@ test('Android lock screen uses the same native media session as app playback', (
   assert.match(page, /nativePlayer\.stop\(\)/);
 });
 
-test('navigation shows only Stations, Favourites and Recent in both menus', () => {
+test('only bottom navigation shows Stations, Favourites and Recent', () => {
   const page = fs.readFileSync('index.html', 'utf8');
-  const upper = page.match(/<nav class="tabs">([\s\S]*?)<\/nav>/)[1];
+  assert.doesNotMatch(page, /<nav class="tabs">/);
   const lower = page.match(/<nav class="bottom-nav"[^>]*>([\s\S]*?)<\/nav>/)[1];
-  for (const menu of [upper, lower]) {
-    assert.equal((menu.match(/<button /g) || []).length, 3);
-    assert.doesNotMatch(menu, /data-nav-label="start"|data-nav-label="more"|data-i18n="discover"/);
-  }
+  assert.equal((lower.match(/<button /g) || []).length, 3);
+  assert.doesNotMatch(lower, /data-nav-label="start"|data-nav-label="more"|data-i18n="discover"/);
   for (const view of ['all', 'fav', 'recent']) assert.match(lower, new RegExp('data-view="' + view + '"'));
   assert.match(page, /button\.dataset\.view===v/);
 });
@@ -271,4 +269,19 @@ test('favourites include saved stations even when the current catalogue filters 
   assert.equal(list()[0].name, 'Saved radio');
   assert.match(page, /localStorage\.setItem\('radioIdFavoriteStations'/);
   assert.match(page, /loadMissingFavorites\(\)/);
+});
+
+test('recently played stations remain visible outside country and language filters', () => {
+  const vm = require('node:vm');
+  const page = fs.readFileSync('index.html', 'utf8');
+  const script = page.match(/<script>([\s\S]*?)<\/script>/)[1];
+  assert.doesNotThrow(() => new vm.Script(script));
+  const list = vm.runInNewContext(script.match(/function list\(\)\{[^\n]+\}/)[0]+';list', {
+    view:'recent', stations:[{id:'station-current-filter'}], recent:['different-country'],
+    recentStations:new Map([['different-country',{id:'different-country',name:'My recent radio',url:'https://example.com/radio'}]]),
+    favorites:new Set(),favoriteStations:new Map(),fixed:[]
+  });
+  assert.equal(list()[0].name,'My recent radio');
+  assert.match(page, /recentStations\.set\(s\.id,s\)/);
+  assert.match(page, /loadMissingRecent\(\)/);
 });
