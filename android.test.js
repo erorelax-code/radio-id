@@ -238,3 +238,10 @@ test('navigation shows only Stations, Favourites and Recent in both menus', () =
   for (const view of ['all', 'fav', 'recent']) assert.match(lower, new RegExp('data-view="' + view + '"'));
   assert.match(page, /button\.dataset\.view===v/);
 });
+
+test('recent and favourites display their visible station count', () => {
+  const page = fs.readFileSync('index.html', 'utf8');
+  assert.match(page, /function render\(\)\{let a=list\(\);if\(view!=='all'\)status\.textContent=a\.length\+' '\+t\('stationCount'\)/);
+  assert.match(page, /if\(view==='recent'\)render\(\)/);
+  assert.match(page, /button\.dataset\.view==='all'/);
+});
