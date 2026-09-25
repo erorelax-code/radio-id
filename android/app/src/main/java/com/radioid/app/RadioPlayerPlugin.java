@@ -75,7 +75,7 @@ public class RadioPlayerPlugin extends Plugin {
                 }
             }
             @Override public void onFailure(@NonNull Throwable error) {
-                call.reject("Radio player connection failed", error);
+                call.reject("Radio player connection failed: " + error.getMessage());
             }
         }, getActivity().getMainExecutor());
     }
