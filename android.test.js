@@ -245,3 +245,30 @@ test('recent and favourites display their visible station count', () => {
   assert.match(page, /if\(view==='recent'\)render\(\)/);
   assert.match(page, /button\.dataset\.view==='all'/);
 });
+
+test('country picker searches localized names and keeps the filter control', () => {
+  const vm = require('node:vm');
+  const page = fs.readFileSync('index.html', 'utf8');
+  const script = page.match(/<script>([\s\S]*?)<\/script>/)[1];
+  assert.doesNotThrow(() => new vm.Script(script));
+  assert.match(page, /id="countrySearch"[^>]*oninput="renderCountryOptions\(\)"/);
+  assert.match(page, /id="countryOverlay"/);
+  assert.match(page, /id="countryTrigger"/);
+  assert.match(page, /function selectCountry\(code\)\{countryFilter\.value=code;closeCountryPicker\(\);changeStationFilters\(\)\}/);
+  const keys = JSON.parse(script.match(/const UI_KEYS=(\[[^\n]+\]);/)[1]);
+  const translations = JSON.parse(script.match(/const UI_TEXT=(\{[^\n]+\});/)[1]);
+  for (const values of Object.values(translations)) assert.equal(values.length, keys.length);
+});
+
+test('favourites include saved stations even when the current catalogue filters them out', () => {
+  const vm = require('node:vm');
+  const page = fs.readFileSync('index.html', 'utf8');
+  const script = page.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const listSource = script.match(/function list\(\)\{[^\n]+\}/)[0];
+  const stored = {id:'favourite-from-another-country',name:'Saved radio',url:'https://example.com/stream'};
+  const list = vm.runInNewContext(listSource+';list', {view:'fav',stations:[{id:'current'}],favorites:new Set([stored.id]),favoriteStations:new Map([[stored.id,stored]]),fixed:[],recent:[]});
+  assert.equal(list().length, 1);
+  assert.equal(list()[0].name, 'Saved radio');
+  assert.match(page, /localStorage\.setItem\('radioIdFavoriteStations'/);
+  assert.match(page, /loadMissingFavorites\(\)/);
+});
