@@ -226,3 +226,15 @@ test('Android lock screen uses the same native media session as app playback', (
   assert.match(page, /nativePlayer\.play\(\{mediaId:s\.id/);
   assert.match(page, /nativePlayer\.stop\(\)/);
 });
+
+test('navigation shows only Stations, Favourites and Recent in both menus', () => {
+  const page = fs.readFileSync('index.html', 'utf8');
+  const upper = page.match(/<nav class="tabs">([\s\S]*?)<\/nav>/)[1];
+  const lower = page.match(/<nav class="bottom-nav"[^>]*>([\s\S]*?)<\/nav>/)[1];
+  for (const menu of [upper, lower]) {
+    assert.equal((menu.match(/<button /g) || []).length, 3);
+    assert.doesNotMatch(menu, /data-nav-label="start"|data-nav-label="more"|data-i18n="discover"/);
+  }
+  for (const view of ['all', 'fav', 'recent']) assert.match(lower, new RegExp('data-view="' + view + '"'));
+  assert.match(page, /button\.dataset\.view===v/);
+});
