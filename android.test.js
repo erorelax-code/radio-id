@@ -166,3 +166,42 @@ test('wave runs only while playback is active', () => {
   assert.match(page, /player\.onpause=\(\)=>setPlaying\(false\)/);
   assert.match(page, /prefers-reduced-motion:reduce/);
 });
+
+
+test('language catalogue removes tags, numbers, bad labels and duplicate ISO languages', () => {
+  const vm = require('node:vm');
+  const page = fs.readFileSync('index.html', 'utf8');
+  const script = page.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const functions = script.match(/function validLanguageCode\(code\)\{[^\n]+\}/)[0] + '\n' +
+    script.match(/function cleanCatalogueLanguages\(rows\)\{[^\n]+\}/)[0];
+  const fallbackLanguages = [
+    {name:'polish',iso_639:'pl'}, {name:'english',iso_639:'en'}
+  ];
+  const clean = vm.runInNewContext(functions + ';cleanCatalogueLanguages', {Intl,fallbackLanguages});
+  const languages = clean([
+    {name:'#english',iso_639:'en',stationcount:40},
+    {name:'1',iso_639:null,stationcount:10},
+    {name:'10 additional languages',iso_639:'xx',stationcount:8},
+    {name:'ak',iso_639:'ak',stationcount:3},
+    {name:'Akan',iso_639:'ak',stationcount:12},
+    {name:'Astur-Leonese',iso_639:'ast',stationcount:4},
+    {name:'invalid123',iso_639:'de',stationcount:9}
+  ]);
+  assert.equal(languages.filter(x => x.iso_639==='en').length, 1);
+  assert.equal(languages.find(x => x.iso_639==='ak').name, 'akan');
+  assert.ok(languages.some(x => x.iso_639==='ast'));
+  assert.ok(languages.every(x => !/[#0-9]/.test(x.name)));
+});
+
+test('searchable language dialog keeps filters and supports accent-insensitive search', () => {
+  const vm = require('node:vm');
+  const page = fs.readFileSync('index.html', 'utf8');
+  const script = page.match(/<script>([\s\S]*?)<\/script>/)[1];
+  assert.doesNotThrow(() => new vm.Script(script));
+  assert.match(page, /id="languageSearch"[^>]*oninput="renderLanguageOptions\(\)"/);
+  assert.match(page, /id="languageOverlay"/);
+  assert.match(page, /id="languageTrigger"/);
+  assert.match(page, /function selectLanguage\(name\)\{languageFilter.value=name;closeLanguagePicker\(\);changeStationFilters\(\)\}/);
+  const searchKey = vm.runInNewContext(script.match(/function searchKey\(value\)\{[^\n]+\}/)[0]+';searchKey', {appLocale:'pl'});
+  assert.equal(searchKey('Français'), 'francais');
+});
