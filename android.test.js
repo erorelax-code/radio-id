@@ -133,3 +133,36 @@ test('country flags, catalogue languages and eight interface translations stay s
   assert.equal(flag('PL'), '🇵🇱');
   assert.equal(flag('GB'), '🇬🇧');
 });
+
+
+test('app language is above country and labelled with flags in all locales', () => {
+  const page = fs.readFileSync('index.html', 'utf8');
+  assert.ok(page.indexOf('id="appLanguage"') < page.indexOf('id="countryFilter"'));
+  for (const flag of ['🇵🇱','🇬🇧','🇷🇴','🇩🇪','🇫🇷','🇪🇸','🇮🇹','🇺🇦']) assert.ok(page.includes(flag));
+  const script = page.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const keys = JSON.parse(script.match(/const UI_KEYS=(\[[^\n]+\]);/)[1]);
+  const languages = JSON.parse(script.match(/const UI_TEXT=(\{[^\n]+\});/)[1]);
+  const label = keys.indexOf('appLanguage');
+  assert.equal(languages.pl[label], 'Język');
+  assert.equal(languages.en[label], 'Language');
+  assert.ok(Object.values(languages).every(values => values[label]));
+});
+
+test('wave runs only while playback is active', () => {
+  const vm = require('node:vm');
+  const page = fs.readFileSync('index.html', 'utf8');
+  const active = new Set();
+  const mainPlay = {textContent: ''}, miniPlay = {textContent: ''};
+  const setPlaying = vm.runInNewContext(
+    page.match(/function setPlaying\(on\)\{[^\n]+\}/)[0] + ';setPlaying',
+    {mainPlay,miniPlay,document:{querySelector:()=>({classList:{toggle:(name,on)=>on?active.add(name):active.delete(name)}})}}
+  );
+  setPlaying(true);
+  assert.ok(active.has('playing'));
+  assert.equal(mainPlay.textContent, 'Ⅱ');
+  setPlaying(false);
+  assert.ok(!active.has('playing'));
+  assert.equal(miniPlay.textContent, '▶');
+  assert.match(page, /player\.onpause=\(\)=>setPlaying\(false\)/);
+  assert.match(page, /prefers-reduced-motion:reduce/);
+});
