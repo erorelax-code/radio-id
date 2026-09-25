@@ -107,3 +107,29 @@ test('language and country filters do not mix Polish and English stations', () =
   assert.equal(matches(englishUK), true);
   assert.equal(matches(polishUK), false);
 });
+
+
+test('country flags, catalogue languages and eight interface translations stay selectable', () => {
+  const vm = require('node:vm');
+  const page = fs.readFileSync('index.html', 'utf8');
+  const script = page.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(script);
+  assert.doesNotThrow(() => new vm.Script(script[1]));
+  const country = page.indexOf('id="countryFilter"');
+  const language = page.indexOf('id="languageFilter"');
+  assert.ok(country >= 0 && language > country, 'country is before station language');
+  assert.match(page, /\/languages\?hidebroken=true/);
+  assert.match(page, /\/countrycodes\?hidebroken=true/);
+  assert.match(page, /function flag\(code\)/);
+  assert.match(page, /data-i18n="appLanguage"/);
+  const keys = JSON.parse(script[1].match(/const UI_KEYS=(\[[^\n]+\]);/)[1]);
+  const translations = JSON.parse(script[1].match(/const UI_TEXT=(\{[^\n]+\});/)[1]);
+  assert.deepEqual(Object.keys(translations).sort(), ['de','en','es','fr','it','pl','ro','uk']);
+  for (const values of Object.values(translations)) {
+    assert.equal(values.length, keys.length);
+    assert.ok(values.every(value => typeof value === 'string' && value.length > 0));
+  }
+  const flag = vm.runInNewContext(script[1].match(/function flag\(code\)\{[^\n]+\}/)[0] + ';flag');
+  assert.equal(flag('PL'), '🇵🇱');
+  assert.equal(flag('GB'), '🇬🇧');
+});
